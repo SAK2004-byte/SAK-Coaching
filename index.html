@@ -1073,10 +1073,13 @@ function doLogin() {
   var client = DB.clients.find(function(c){ return c.pin === pin; });
   if (client) {
     SESSION = { role: 'client', coachId: null, clientId: client.id };
-    showApp();
-    checkDailyCheckin(client);
-    // Weekly BW prompt runs after check-in closes (2.5s delay)
-    setTimeout(function(){ checkBWPrompt(client); }, 3000);
+    showApp().then(function() {
+      var freshClient = DB.clients.find(function(c){ return c.id === SESSION.clientId; });
+      if (freshClient) {
+        checkDailyCheckin(freshClient);
+        setTimeout(function(){ checkBWPrompt(freshClient); }, 3000);
+      }
+    });
     return;
   }
 
@@ -1106,7 +1109,7 @@ async function showApp() {
   }
   if (SESSION.role === 'superadmin') renderSuperAdminApp();
   else if (SESSION.role === 'coach') renderAdminApp();
-  else renderClientApp();
+  else if (SESSION.role === 'client') renderClientApp();
 }
 
 function doLogout() {
