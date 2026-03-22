@@ -2608,19 +2608,26 @@ function renderClientView() {
   var c = getClient(SESSION.clientId);
   if (!c) return;
   var week = c.startDate ? weekNum(c.startDate, today()) : null;
-  var weekBanner = week ? `<div class="notif-banner" style="margin-bottom:20px"><div class="notif-icon">💪</div><div class="notif-text">You're on <strong>Week ${week}</strong> of your program</div></div>` : '';
+  var weekBanner = week ? `<div class="notif-banner" style="margin-bottom:12px"><div class="notif-icon">💪</div><div class="notif-text">You're on <strong>Week ${week}</strong> of your program</div></div>` : '';
   var content = document.getElementById('main-content');
 
-  // Always rebuild announcements
+  // Announcements — collapsible, dismissible
   var announcements = getClientAnnouncements(c);
-  var annHtml = announcements.length ? announcements.map(function(a){
-    return `<div class="announcement-card" style="margin-bottom:10px">
-      ${a.pinned?'<div style="font-size:10px;color:var(--gold);font-weight:700;margin-bottom:4px">📌 PINNED</div>':''}
-      ${a.title?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;margin-bottom:4px">${esc(a.title)}</div>`:''}
-      <div style="font-size:13px;color:var(--white2);white-space:pre-wrap">${esc(a.body)}</div>
-      <div class="announcement-from">📢 From your coach · ${fmtDate(a.createdAt)}</div>
+  var dismissed = c.dismissedAnnouncements || [];
+  var visible = announcements.filter(function(a){ return dismissed.indexOf(a.id) === -1; });
+  var annHtml = visible.length ? `<div style="margin-bottom:12px">` + visible.map(function(a){
+    return `<div class="announcement-card" style="margin-bottom:8px;position:relative">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div style="flex:1">
+          ${a.pinned?'<div style="font-size:10px;color:var(--gold);font-weight:700;margin-bottom:4px">📌 PINNED</div>':''}
+          ${a.title?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;margin-bottom:4px">${esc(a.title)}</div>`:''}
+          <div style="font-size:13px;color:var(--white2);white-space:pre-wrap">${esc(a.body)}</div>
+          <div class="announcement-from">📢 From your coach · ${fmtDate(a.createdAt)}</div>
+        </div>
+        <button onclick="dismissAnnouncement('${c.id}','${a.id}')" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0;flex-shrink:0;line-height:1" title="Dismiss">✕</button>
+      </div>
     </div>`;
-  }).join('') : '';
+  }).join('') + `</div>` : '';
 
   // Unpaid invoice nudge
   var unpaidCount = (DB.invoices||[]).filter(function(inv){ return inv.clientId === c.id && inv.status !== 'paid'; }).length;
@@ -2629,7 +2636,6 @@ function renderClientView() {
     <span style="font-size:12px;color:var(--gold);font-weight:600">View →</span>
   </div>` : '';
 
-  // Always rebuild the full wrapper so announcements + tab content are always in sync
   content.innerHTML = `
     <div class="page-header"><div class="page-title">Hey, ${esc(c.name.split(' ')[0])} 👋</div><div class="page-sub">Your coaching portal</div></div>
     ${invBadge}
@@ -2647,6 +2653,15 @@ function renderClientView() {
   else if (currentClientTab === 'photos') el.innerHTML = buildPhotosView(c, false);
   else if (currentClientTab === 'invoices') el.innerHTML = buildClientInvoicesView(c);
   else if (currentClientTab === 'community') el.innerHTML = buildClientCommunityView(c);
+}
+
+function dismissAnnouncement(cid, annId) {
+  var c = getClient(cid);
+  if (!c) return;
+  if (!c.dismissedAnnouncements) c.dismissedAnnouncements = [];
+  if (c.dismissedAnnouncements.indexOf(annId) === -1) c.dismissedAnnouncements.push(annId);
+  saveDB();
+  renderClientView();
 }
 
 // ══════════════════════════════════════════
